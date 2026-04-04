@@ -73,8 +73,8 @@ const AddProduct = () => {
   const schema = Yup.object({
     name: Yup.string().trim().min(2, "Name min 2 chars").required("Name is required"),
     parentId: Yup.number().nullable(),
-    purchaseAmount: Yup.number().typeError("Purchase must be a number").min(0, "Purchase must be ≥ 0").required("Purchase is required"),
-    saleAmount: Yup.number().typeError("Sale must be a number").min(0, "Sale must be ≥ 0").required("Sale is required"),
+    // purchaseAmount: Yup.number().typeError("Purchase must be a number").min(0, "Purchase must be ≥ 0").required("Purchase is required"),
+    // saleAmount: Yup.number().typeError("Sale must be a number").min(0, "Sale must be ≥ 0").required("Sale is required"),
   });
 
   const onSubmit = async (values: FormValues, { setSubmitting, resetForm }: FormikHelpers<FormValues>) => {
