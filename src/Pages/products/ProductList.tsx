@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 import ConfirmModal from "../../components/ConfirmModal";
 import toast from "react-hot-toast";
@@ -18,16 +18,16 @@ import {
   Button,
   Stack,
   Box,
+  Switch,
+  FormControlLabel,
+  TablePagination,
+  CircularProgress,
 } from "@mui/material";
 import { FaRegEdit } from "react-icons/fa";
 
 type Product = {
   id: number;
   name: string;
-  parent_id: number | null;
-  parent?: {
-    name: string;
-  };
   purchaseAmount: number;
   saleAmount: number;
   updated_at: string;
@@ -36,39 +36,55 @@ type Product = {
 const ProductList = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
-  const [parentSearch, setParentSearch] = useState("");
+  const [showPurchase, setShowPurchase] = useState(false);
+  const [loading, setLoading] = useState(false);
+
   const [confirm, setConfirm] = useState<{ open: boolean; id?: number }>({
     open: false,
   });
 
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
+
+  // ✅ SORT STATE
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
   const navigate = useNavigate();
 
+  // ✅ FETCH WITH SEARCH + PAGINATION + SORT
   const fetchProducts = async () => {
-    // Select parent info using foreign key join
-    const { data, error } = await supabase
+    setLoading(true);
+
+    let query = supabase
       .from("products")
-      .select("*, parent:parent_id(name)")
-      .order("id", { ascending: false });
+      .select("*", { count: "exact" });
+
+    // 🔍 Search
+    if (search) {
+      query = query.ilike("name", `%${search}%`);
+    }
+
+    // 🔤 Sorting (A → Z / Z → A)
+    query = query
+      .order("name", { ascending: sortOrder === "asc" })
+      .range(page * rowsPerPage, (page + 1) * rowsPerPage - 1);
+
+    const { data, error, count } = await query;
 
     if (error) {
       toast.error("Failed to load products");
     } else {
       setProducts((data ?? []) as Product[]);
+      setTotalCount(count || 0);
     }
+
+    setLoading(false);
   };
 
   useEffect(() => {
     fetchProducts();
-  }, []);
-
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const matchesName = p.name.toLowerCase().includes(search.toLowerCase());
-      const parentName = (p.parent?.name || "").toLowerCase();
-      const matchesParent = parentName.includes(parentSearch.toLowerCase());
-      return matchesName && matchesParent;
-    });
-  }, [products, search, parentSearch]);
+  }, [page, rowsPerPage, search, sortOrder]);
 
   const handleDelete = async (id: number) => {
     try {
@@ -101,93 +117,155 @@ const ProductList = () => {
         Product List
       </Typography>
 
+      {/* 🔍 Search + Sort */}
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
         <TextField
           label="Search by Name"
-          variant="outlined"
-          fullWidth
           size="small"
+          fullWidth
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setPage(0);
+            setSearch(e.target.value);
+          }}
         />
-        <TextField
-          label="Search by Parent"
+
+        {/* ✅ Sort Button */}
+        <Button
+        sx={{whiteSpace:"nowrap"}}
           variant="outlined"
-          fullWidth
-          size="small"
-          value={parentSearch}
-          onChange={(e) => setParentSearch(e.target.value)}
-        />
+          onClick={() => {
+            setPage(0);
+            setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+          }}
+        >
+          {sortOrder === "asc" ? "A → Z" : "Z → A"}
+        </Button>
       </Stack>
 
-      <TableContainer component={Paper} elevation={3} sx={{ borderRadius: 2, overflow: "hidden" }}>
-        <Box sx={{ overflowX: "auto" }}>
-          <Table size="small">
-            <TableHead sx={{ bgcolor: "#f8fafc" }}>
-              <TableRow>
-                <TableCell sx={{ fontWeight: "bold", whiteSpace: "nowrap" }}>Name</TableCell>
-                <TableCell sx={{ fontWeight: "bold", whiteSpace: "nowrap" }}>Parent</TableCell>
-                <TableCell align="right" sx={{ fontWeight: "bold", whiteSpace: "nowrap" }}>Purchase (₹)</TableCell>
-                <TableCell align="right" sx={{ fontWeight: "bold", whiteSpace: "nowrap" }}>Sale (₹)</TableCell>
-                <TableCell sx={{ fontWeight: "bold", whiteSpace: "nowrap" }}>Updated</TableCell>
-                <TableCell align="center" sx={{ fontWeight: "bold", whiteSpace: "nowrap" }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
+      {/* 🔘 Toggle */}
+      <Box sx={{ mb: 2, display: "flex", justifyContent: "end" }}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={showPurchase}
+              onChange={() => setShowPurchase((prev) => !prev)}
+            />
+          }
+          label="Show Purchase Amount"
+        />
+      </Box>
 
-            <TableBody>
-              {filteredProducts.length > 0 ? (
-                filteredProducts.map((product) => (
-                  <TableRow key={product.id} hover>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>{product.name}</TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>{product.parent?.name || "-"}</TableCell>
-                    <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+      {/* 📊 Table */}
+      <TableContainer component={Paper} elevation={4}>
+        <Table size="small">
+          <TableHead sx={{ bgcolor: "#1e293b" }}>
+            <TableRow>
+              <TableCell sx={{ color: "#fff", fontWeight: 600 }}>
+                Name
+              </TableCell>
+
+              {showPurchase && (
+                <TableCell align="right" sx={{ color: "#fff", fontWeight: 600 }}>
+                  Purchase (₹)
+                </TableCell>
+              )}
+
+              <TableCell align="right" sx={{ color: "#fff", fontWeight: 600 }}>
+                Sale (₹)
+              </TableCell>
+
+              <TableCell sx={{ color: "#fff", fontWeight: 600 }}>
+                Updated
+              </TableCell>
+
+              <TableCell align="center" sx={{ color: "#fff", fontWeight: 600 }}>
+                Actions
+              </TableCell>
+            </TableRow>
+          </TableHead>
+
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={showPurchase ? 5 : 4}
+                  align="center"
+                  sx={{ py: 4 }}
+                >
+                  <CircularProgress size={30} />
+                </TableCell>
+              </TableRow>
+            ) : products.length > 0 ? (
+              products.map((product) => (
+                <TableRow key={product.id} hover>
+                  <TableCell>{product.name}</TableCell>
+
+                  {showPurchase && (
+                    <TableCell align="right">
                       ₹{product.purchaseAmount}
                     </TableCell>
-                    <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
-                      ₹{product.saleAmount}
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.75rem", color: "text.secondary" }}>
-                      {formatDate(product.updated_at)}
-                    </TableCell>
-                    <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
-                      <Stack direction="row" spacing={1} justifyContent="center">
-                        <Button
-                          variant="outlined"
-                          color="primary"
-                          size="small"
-                          sx={{ minWidth: 40, p: 0.5 }}
-                          onClick={() => navigate(`/add/${product.id}`)}
-                        >
-                          <FaRegEdit size={18} />
-                        </Button>
+                  )}
 
-                        <Button
-                          variant="outlined"
-                          color="error"
-                          size="small"
-                          sx={{ minWidth: 40, p: 0.5 }}
-                          onClick={() =>
-                            setConfirm({ open: true, id: product.id })
-                          }
-                        >
-                          <MdDelete size={18} />
-                        </Button>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                    No products found
+                  <TableCell align="right">
+                    ₹{product.saleAmount}
+                  </TableCell>
+
+                  <TableCell>{formatDate(product.updated_at)}</TableCell>
+
+                  <TableCell align="center">
+                    <Stack direction="row" spacing={1} justifyContent="center">
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        size="small"
+                        sx={{ minWidth: 40, p: 1 }}
+                        onClick={() => navigate(`/add/${product.id}`)}
+                      >
+                        <FaRegEdit size={16} />
+                      </Button>
+
+                      <Button
+                        variant="contained"
+                        color="error"
+                        size="small"
+                        sx={{ minWidth: 40, p: 1 }}
+                        onClick={() =>
+                          setConfirm({ open: true, id: product.id })
+                        }
+                      >
+                        <MdDelete size={16} />
+                      </Button>
+                    </Stack>
                   </TableCell>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </Box>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={showPurchase ? 5 : 4} align="center">
+                  No products found
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+
+        {/* 📄 Pagination */}
+        <TablePagination
+          component="div"
+          count={totalCount}
+          page={page}
+          onPageChange={(e, newPage) => setPage(newPage)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
+          rowsPerPageOptions={[10, 20, 50, 100]}
+        />
       </TableContainer>
 
+      {/* ❗ Confirm Modal */}
       <ConfirmModal
         open={confirm.open}
         title="Delete this product?"
