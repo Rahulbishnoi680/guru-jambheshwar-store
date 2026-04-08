@@ -55,9 +55,7 @@ const ProductList = () => {
   const fetchProducts = async () => {
     setLoading(true);
 
-    let query = supabase
-      .from("products")
-      .select("*", { count: "exact" });
+    let query = supabase.from("products").select("*", { count: "exact" });
 
     if (search) {
       query = query.ilike("name", `%${search}%`);
@@ -186,7 +184,10 @@ const ProductList = () => {
                 </TableCell>
               )}
 
-              <TableCell align="right" sx={{ color: "#fff", fontWeight: 600 }}>
+              <TableCell
+                align="right"
+                sx={{ color: "#fff", fontWeight: 600, whiteSpace: "nowrap" }}
+              >
                 Sale (₹)
               </TableCell>
 
@@ -220,10 +221,7 @@ const ProductList = () => {
                   </TableCell>
 
                   {showPurchase && (
-                    <TableCell
-                      align="right"
-                      sx={{ whiteSpace: "nowrap" }}
-                    >
+                    <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
                       ₹{product.purchaseAmount}
                     </TableCell>
                   )}
@@ -291,6 +289,22 @@ const ProductList = () => {
             setPage(0);
           }}
           rowsPerPageOptions={[10, 20, 50, 100]}
+          // ✅ ADD THIS
+          sx={{
+            backgroundColor: "#f1f5f9", // light gray
+            borderTop: "1px solid #e2e8f0",
+            "& .MuiTablePagination-toolbar": {
+              minHeight: "48px",
+            },
+            "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
+              {
+                color: "#475569", // dark gray text
+                fontWeight: 500,
+              },
+            "& .MuiSvgIcon-root": {
+              color: "#64748b", // icons gray
+            },
+          }}
         />
       </TableContainer>
 
