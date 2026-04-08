@@ -4,6 +4,7 @@ import ConfirmModal from "../../components/ConfirmModal";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { MdDelete } from "react-icons/md";
+import { FaRegEdit } from "react-icons/fa";
 
 import {
   Table,
@@ -22,8 +23,8 @@ import {
   FormControlLabel,
   TablePagination,
   CircularProgress,
+  Tooltip,
 } from "@mui/material";
-import { FaRegEdit } from "react-icons/fa";
 
 type Product = {
   id: number;
@@ -47,12 +48,10 @@ const ProductList = () => {
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
 
-  // ✅ SORT STATE
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const navigate = useNavigate();
 
-  // ✅ FETCH WITH SEARCH + PAGINATION + SORT
   const fetchProducts = async () => {
     setLoading(true);
 
@@ -60,12 +59,10 @@ const ProductList = () => {
       .from("products")
       .select("*", { count: "exact" });
 
-    // 🔍 Search
     if (search) {
       query = query.ilike("name", `%${search}%`);
     }
 
-    // 🔤 Sorting (A → Z / Z → A)
     query = query
       .order("name", { ascending: sortOrder === "asc" })
       .range(page * rowsPerPage, (page + 1) * rowsPerPage - 1);
@@ -89,7 +86,6 @@ const ProductList = () => {
   const handleDelete = async (id: number) => {
     try {
       const { error } = await supabase.from("products").delete().eq("id", id);
-
       if (error) throw error;
 
       toast.success("Product deleted");
@@ -117,8 +113,8 @@ const ProductList = () => {
         Product List
       </Typography>
 
-      {/* 🔍 Search + Sort */}
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
+      {/* 🔍 Search */}
+      <Stack spacing={2} sx={{ mb: 2 }}>
         <TextField
           label="Search by Name"
           size="small"
@@ -130,31 +126,47 @@ const ProductList = () => {
           }}
         />
 
-        {/* ✅ Sort Button */}
-        <Button
-        sx={{whiteSpace:"nowrap"}}
-          variant="outlined"
-          onClick={() => {
-            setPage(0);
-            setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+        {/* ✅ Sort + Toggle SAME LINE (mobile fix) */}
+        <Box
+          sx={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 1,
+            justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
-          {sortOrder === "asc" ? "A → Z" : "Z → A"}
-        </Button>
-      </Stack>
+          <Button
+            variant="outlined"
+            size="small"
+            sx={{ whiteSpace: "nowrap" }}
+            onClick={() => {
+              setPage(0);
+              setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+            }}
+          >
+            {sortOrder === "asc" ? "A → Z" : "Z → A"}
+          </Button>
 
-      {/* 🔘 Toggle */}
-      <Box sx={{ mb: 2, display: "flex", justifyContent: "end" }}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={showPurchase}
-              onChange={() => setShowPurchase((prev) => !prev)}
-            />
-          }
-          label="Show Purchase Amount"
-        />
-      </Box>
+          <FormControlLabel
+            sx={{
+              m: 0,
+              "& .MuiFormControlLabel-label": {
+                fontSize: { xs: "12px", sm: "14px" },
+                whiteSpace: "nowrap",
+              },
+            }}
+            control={
+              <Switch
+                size="small" // 👈 small toggle
+                checked={showPurchase}
+                onChange={() => setShowPurchase((prev) => !prev)}
+              />
+            }
+            label="Purchase"
+          />
+        </Box>
+      </Stack>
 
       {/* 📊 Table */}
       <TableContainer component={Paper} elevation={4}>
@@ -166,7 +178,10 @@ const ProductList = () => {
               </TableCell>
 
               {showPurchase && (
-                <TableCell align="right" sx={{ color: "#fff", fontWeight: 600 }}>
+                <TableCell
+                  align="right"
+                  sx={{ color: "#fff", fontWeight: 600 }}
+                >
                   Purchase (₹)
                 </TableCell>
               )}
@@ -199,43 +214,57 @@ const ProductList = () => {
             ) : products.length > 0 ? (
               products.map((product) => (
                 <TableRow key={product.id} hover>
-                  <TableCell>{product.name}</TableCell>
+                  {/* ✅ NOWRAP applied */}
+                  <TableCell sx={{ whiteSpace: "nowrap" }}>
+                    {product.name}
+                  </TableCell>
 
                   {showPurchase && (
-                    <TableCell align="right">
+                    <TableCell
+                      align="right"
+                      sx={{ whiteSpace: "nowrap" }}
+                    >
                       ₹{product.purchaseAmount}
                     </TableCell>
                   )}
 
-                  <TableCell align="right">
+                  <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
                     ₹{product.saleAmount}
                   </TableCell>
 
-                  <TableCell>{formatDate(product.updated_at)}</TableCell>
+                  <TableCell sx={{ whiteSpace: "nowrap" }}>
+                    {formatDate(product.updated_at)}
+                  </TableCell>
 
                   <TableCell align="center">
                     <Stack direction="row" spacing={1} justifyContent="center">
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        size="small"
-                        sx={{ minWidth: 40, p: 1 }}
-                        onClick={() => navigate(`/add/${product.id}`)}
-                      >
-                        <FaRegEdit size={16} />
-                      </Button>
+                      {/* ✏️ Edit Tooltip */}
+                      <Tooltip title="Edit">
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          size="small"
+                          sx={{ minWidth: 40, p: 1 }}
+                          onClick={() => navigate(`/add/${product.id}`)}
+                        >
+                          <FaRegEdit size={16} />
+                        </Button>
+                      </Tooltip>
 
-                      <Button
-                        variant="contained"
-                        color="error"
-                        size="small"
-                        sx={{ minWidth: 40, p: 1 }}
-                        onClick={() =>
-                          setConfirm({ open: true, id: product.id })
-                        }
-                      >
-                        <MdDelete size={16} />
-                      </Button>
+                      {/* 🗑 Delete Tooltip */}
+                      <Tooltip title="Delete">
+                        <Button
+                          variant="contained"
+                          color="error"
+                          size="small"
+                          sx={{ minWidth: 40, p: 1 }}
+                          onClick={() =>
+                            setConfirm({ open: true, id: product.id })
+                          }
+                        >
+                          <MdDelete size={16} />
+                        </Button>
+                      </Tooltip>
                     </Stack>
                   </TableCell>
                 </TableRow>
@@ -265,7 +294,6 @@ const ProductList = () => {
         />
       </TableContainer>
 
-      {/* ❗ Confirm Modal */}
       <ConfirmModal
         open={confirm.open}
         title="Delete this product?"
