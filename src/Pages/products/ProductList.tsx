@@ -178,7 +178,7 @@ const ProductList = () => {
               {showPurchase && (
                 <TableCell
                   align="right"
-                  sx={{ color: "#fff", fontWeight: 600 }}
+                  sx={{ color: "#fff", fontWeight: 600, whiteSpace: "nowrap" }}
                 >
                   Purchase (₹)
                 </TableCell>
